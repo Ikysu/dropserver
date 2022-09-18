@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/locale/ru.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/particles.js/2.0.0/particles.min.js"></script>
+    <title>none</title>
+    <script>
+        moment.locale("ru")
+        function formatBytes(a,b=2,k=1024){with(Math){let d=floor(log(a)/log(k));return 0==a?"0 Bytes":parseFloat((a/pow(k,d)).toFixed(max(0,b)))+" "+["Bytes","KB","MB","GB","TB","PB","EB","ZB","YB"][d]}}
+        function upload(file) {
+            if(!file) return alert("Выберите файл")
+            console.log(file)
+            document.getElementById("fileupl").value=""
+            clckLogo = clckLogoSetGoHome
+            document.getElementsByClassName("wrap")[0].classList.replace("home", "upload")
+            var content = document.getElementsByClassName("content")[0]
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "/")
+            const formData = new FormData();
+            formData.append(file.name, file)
+
+            //jschardet.detect(file)
+
+            // progress bar
+            console.log("UPLOAD: 0%")
+            content.innerHTML = "UPLOAD: 0%"
+
+            xhr.upload.onprogress=function(e){
+                console.log("UPLOAD: "+Math.floor(100/(e.total/e.loaded))+"%")
+                content.innerHTML = "UPLOAD: "+Math.floor(100/(e.total/e.loaded))+"%"
+            }
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    var j = JSON.parse(xhr.response)
+                    if(j.id){
+                        window.location.hash = j.id;
+                        status(j.id)
+                    }else{
+
+                        if(j.error){
+                            console.log("UPLOAD: ERR", j.error)
+                            content.innerHTML = "<p>UPLOAD ERR</p><p>"+j.error+"</p><button onclick='goHome()'>BACK</button>"
+                        }else{
+                            console.log("UPLOAD: ERR", xhr.response)
+                            content.innerHTML = "<p>UPLOAD ERR</p><p>"+xhr.response+"</p><button onclick='goHome()'>BACK</button>"
+                        }
+                    }
+                }else{
+                    console.log("UPLOAD: ERR", xhr.status)
+                    content.innerHTML = "<p>UPLOAD ERR</p><p>SC: "+xhr.status+"</p><button onclick='goHome()'>BACK</button>"
+                }
+            };
+
+            xhr.send(formData)
+                
+            
+        }
+
+        function download() {
+            clckLogo = clckLogoSetGoHome
+            document.getElementsByClassName("wrap")[0].classList.replace("home", "upload")
+            var content = document.getElementsByClassName("content")[0]
+            if(!stat||!window.location.hash) return alert("Ошибка, информация о файле не прогруженна")
+            var id = window.location.hash.slice(1)
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", "/"+id)
+
+            // progress bar
+            console.log("DOWNLOAD: 0%")
+            content.innerHTML = "DOWNLOAD: 0%"
+
+            xhr.responseType="arraybuffer"
+
+            xhr.onprogress=function(e){
+                console.log("DOWNLOAD: "+Math.floor(100/(e.total/e.loaded))+"%")
+                content.innerHTML = "DOWNLOAD: "+Math.floor(100/(e.total/e.loaded))+"%"
+            }
+
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    var filename = stat.name;
+                    var blob = new Blob([this.response], { type: xhr.getResponseHeader('Content-Type'), responseType: 'arraybuffer' });
+                    if (typeof window.navigator.msSaveBlob !== 'undefined') {
+                        window.navigator.msSaveBlob(blob, filename);
+                    } else {
+                        var URL = window.URL || window.webkitURL;
+                        var downloadUrl = URL.createObjectURL(blob);
+
+                        if (filename) {
+                            var a = document.createElement("a");
+                            if (typeof a.download === 'undefined') {
+                                window.location = downloadUrl;
+                            } else {
+                                a.href = downloadUrl;
+                                a.download = filename;
+                                a.style.display="none"
+                                document.body.appendChild(a);
+                                a.click();
+                            }
+                            setTimeout(() => {
+                                a.remove();
+                                status(id)
+                            }, 1000);
+                        } else {
+                            window.location = downloadUrl;
+                        }
+                    }
+                }else{
+
+                    console.log("DOWNLOAD: ERR", xhr.status)
+                    content.innerHTML = "<p>DOWNLOAD ERR</p><p>SC: "+xhr.status+"</p><button onclick='status(\""+id+"\")'>BACK</button>"
+
+                }
+            };
+
+            xhr.send()
+
+        }
+
+        function del() {
+            clckLogo = clckLogoSetGoHome
+            document.getElementsByClassName("wrap")[0].classList.replace("home", "upload")
+            var content = document.getElementsByClassName("content")[0]
+            if(!stat||!window.location.hash) return alert("Ошибка, информация о файле не прогруженна")
+            var id = window.location.hash.slice(1)
+            var xhr = new XMLHttpRequest();
+            xhr.open("DELETE", "/"+id)
+            xhr.send()
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    if(xhr.response!=""){
+                        var j = JSON.parse(xhr.response)
+                        if(j.ok){
+                            goHome()
+                        }else{
+                            if(j.error){
+                                console.log("DELETE: ERR", j.error)
+                                content.innerHTML = "<p>DELETE ERR</p><p>"+j.error+"</p><button onclick='status(\""+id+"\")'>BACK</button>"
+                            }else{
+                                console.log("DELETE: ERR", xhr.response)
+                                content.innerHTML = "<p>DELETE ERR</p><p>"+xhr.response+"</p><button onclick='status(\""+id+"\")'>BACK</button>"
+                            }
+                        }
+                    }else{
+                        console.log("DELETE: ERR", xhr.response)
+                        content.innerHTML = "<p>DELETE ERR</p><p>SC: "+xhr.response+"</p><button onclick='status(\""+id+"\")'>BACK</button>"
+                    }
+                }else{
+                    console.log("DELETE: ERR", xhr.status)
+                    content.innerHTML = "<p>DELETE ERR</p><p>SC: "+xhr.status+"</p><button onclick='status(\""+id+"\")'>BACK</button>"
+                }
+            }
+        }
+
+        var stat = null;
+
+        function status(id){
+            clckLogo = clckLogoSetGoHome
+            document.getElementsByClassName("wrap")[0].classList.replace("home", "upload")
+            var content = document.getElementsByClassName("content")[0]
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "/"+id)
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    if(xhr.response=="") return window.location.replace("/")
+                    var j = JSON.parse(xhr.response)
+                    if(j.name){
+                        stat=j;
+                        var ti = moment(j.time)
+                        var sharebtn = "";
+                        if(navigator.share){
+                            sharebtn = `<button onclick="navigator.share({url:window.location.href})">Поделиться</button></br>`
+                        }
+                        content.innerHTML=`
+                            <p>ID: ${id}</p>
+                            <p>Имя: ${j.name}</p>
+                            <p>Вес: ${formatBytes(j.size)}</p>
+                            <p>Удаление ${ti.fromNow()} (в ${ti.format("HH:mm")})</p>
+                            <button onclick="download()">Скачать</button> ${sharebtn}<button onclick="del()" style="color:red">Удалить</button>
+                        `
+                    }else{
+                        if(j.error){
+                            console.log("DELETE: ERR", j.error)
+                            content.innerHTML = "<p>STATUS ERR</p><p>"+j.error+"</p><button onclick='goHome()'>BACK</button>"
+                        }else{
+                            console.log("DELETE: ERR", xhr.response)
+                            content.innerHTML = "<p>STATUS ERR</p><p>"+xhr.response+"</p><button onclick='goHome()'>BACK</button>"
+                        }
+                    }
+                }else{
+                    console.log("DELETE: ERR", xhr.status)
+                    content.innerHTML = "<p>STATUS ERR</p><p>SC: "+xhr.status+"</p><button onclick='goHome()'>BACK</button>"
+                }
+            };
+            xhr.send()
+
+            
+        }
+
+
+        function goHome(){
+            window.location.hash=""
+            clckLogo = clckLogoSetUpload
+            document.getElementsByClassName("wrap")[0].classList.replace("upload", "home")
+            document.getElementsByClassName("content")[0].innerHTML="";
+        }
+
+        function dropAreaShow(){
+            var fd = document.getElementsByClassName("fdropper")[0]
+            if(fd.classList.contains("hiddener-out")){
+                fd.classList.replace("hiddener-out", "hiddener-in")
+            }else{
+                fd.classList.add("hiddener-in")
+            }
+        }
+        function dropAreaHide(){
+            var fd = document.getElementsByClassName("fdropper")[0]
+            if(fd.classList.contains("hiddener-in")){
+                fd.classList.replace("hiddener-in", "hiddener-out")
+            }else{
+                fd.classList.add("hiddener-out")
+            }
+        }
+
+        var dropping = false;
+        var timer = null
+
+        function onDropping (event) {
+            event.preventDefault()
+            if(!dropping) {
+                dropping=true;
+                dropAreaShow()
+            };
+            clearTimeout(timer)
+            timer=setTimeout(() => {
+                dropping=false;
+                dropAreaHide()
+            }, 100);
+        }
+
+        window.onhashchange=()=>{
+            if(window.location.hash){
+                status(window.location.hash.slice(1))
+            }
+        }
+
+        window.onload=async ()=>{
+            var can = document.getElementById("circle").children[0],
+                c = can.getContext('2d');
+            var posX = can.width / 2,
+                posY = can.height / 2,
+                oneProcent = 360 / 100;
+
+            var deegres = 0;
+            function deg () {
+                if(deegres<90){
+                    return 3;
+                }else{
+                    if(deegres<180){
+                        return 2;
+                    }else{
+                        return 1;
+                    }
+                }
+            }
+            var acrInterval = setInterval (function() {
+                deegres += deg();
+                c.clearRect( 0, 0, can.width, can.height );
+
+                c.beginPath();
+                c.strokeStyle = '#b1b1b1';
+                c.lineWidth = '9';
+                c.arc( posX, posY, 40, (Math.PI/90) * 270, (Math.PI/90) * (270 + deegres) );
+                c.stroke();
+                if( deegres >= 360 ) clearInterval(acrInterval);
+            }, 10);
+
+            await particlesJS.load('particles', '%');
+
+            if(window.location.hash){
+                status(window.location.hash.slice(1))
+            }
+        }
+
+        function dragger(ev){
+            ev.preventDefault();
+            upload((ev.dataTransfer.items&&ev.dataTransfer.items.length>0)?ev.dataTransfer.items[0].getAsFile():(ev.dataTransfer.files.length>0)?ev.dataTransfer.files[0]:null)
+        }
+
+        var clckLogo = clckLogoSetUpload
+
+        function clckLogoSetUpload (ev) {
+            return document.getElementById("fileupl").click()
+        }
+
+        function clckLogoSetGoHome (ev) {
+            return goHome()
+        }
+        
+    </script>
+    <link rel="stylesheet" href="/$">
+</head>
+<body ondrop="dragger(event)" ondragover="onDropping(event)" class="bodyHide">
+    <div class="fdropper" >
+        <div>DROP AREA</div>
+    </div>
+    <div class="background init">
+        <div id="particles"></div>
+        <div class="wrap home eloaded">
+            <div class="inner">
+                <header id="page-header">
+                    <a id="logo" onclick="clckLogo(event)">
+                        <div id="circle">
+                            <canvas width="100" height="100"></canvas>
+                        </div>
+                        <div id="mark">n</div>
+                        <div id="name">one</div>
+                    </a>
+                </header>
+                <div class="content">
+                </div>
+            </div>
+            <div class="support-wrap">
+                <a href="https://nopy.to" class="support support-open">
+                    <p>help nopy.to</p>
+                    <i class="far fa-heart"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    <div style="display:none" id="sys">
+        <input id="fileupl" type="file" oninput="upload((event.target.files&&event.target.files.length>0)?event.target.files[0]:null);event.tagret.value=''">
+    </div>
+</body>
+</html>
